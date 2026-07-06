@@ -1,48 +1,40 @@
-import pyautogui
-from time import sleep
 import socket
-from DIPPID import SensorUDP
+from time import sleep
+from dippid import SensorUDP
+from pynput.mouse import Controller
 
-# Disable PyAutoGUI's internal delay for maximum speed
-pyautogui.PAUSE = 0
+# Initialize the pynput mouse controller
+mouse = Controller()
 
-UDP_PORT = 5700  # Default DIPPID port [cite: 89]
-DEADZONE = 0.05  # Low deadzone so tiny movements are registered
-SENSITIVITY = 12 # Higher sensitivity to make the cursor move across the screen easily
+UDP_PORT = 5700
+DEADZONE = 0.05
+SENSITIVITY = 15
 
 def on_gyroscope_change(data):
     """
-    Using the 'gyroscope' key to measure rotation velocity.
-    Sweeping the phone across the table creates a rotational velocity 
-    around the Z or X/Y axes depending on how you hold it.
+    Standard 2D mouse movement using pynput (no buttons required).
     """
     if not isinstance(data, dict):
         return
 
-    # Extract angular momentum data 
-    # In a flat table position, pivoting left/right maps to 'z' 
-    # and pushing forward/backward maps to 'x' or 'y'
     gyro_x = -data.get('x', 0)
     gyro_z = data.get('z', 0)
 
     move_x = 0
     move_y = 0
 
-    # Apply deadzone and multiply by our sensitivity factor
     if abs(gyro_z) > DEADZONE:
-        # Turning left/right swings the Z axis
         move_x = -gyro_z * SENSITIVITY  
 
     if abs(gyro_x) > DEADZONE:
-        # Pushing forward/backward tilts/swings the X axis
         move_y = gyro_x * SENSITIVITY
 
     if move_x != 0 or move_y != 0:
         try:
-            # Shift the cursor relatively
-            pyautogui.move(int(move_x), int(move_y))
+            # pynput relative movement
+            mouse.move(int(move_x), int(move_y))
         except Exception as e:
-            pass
+            print(f"Movement error: {e}")
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -58,16 +50,15 @@ def get_local_ip():
 def main():
     my_ip = get_local_ip()
     print("==================================================")
-    print(f" DIPPID Gyro-Mouse Prototype")
+    print(f" Pure pynput 2D Mouse Test")
     print(f" -> Phone IP: {my_ip}")
     print(f" -> Phone Port: {UDP_PORT}")
     print("==================================================")
-    print("Place the phone flat on the table and slide/pivot it like a mouse.")
-    print("Press Ctrl+C to exit.")
+    print("Move the phone to move the cursor. Press Ctrl+C to exit.")
 
     phone_sensor = SensorUDP(port=UDP_PORT)
     
-    # Registering to 'gyroscope' for active movement tracking 
+    # Register only the gyroscope
     phone_sensor.register_callback("gyroscope", on_gyroscope_change)
 
     try:
