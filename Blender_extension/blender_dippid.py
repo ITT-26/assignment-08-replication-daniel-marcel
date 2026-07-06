@@ -1,4 +1,5 @@
 import mathutils  # blender math utils
+import math
 import json
 import socket
 import time
@@ -39,6 +40,7 @@ class DIPPID_Controller(bpy.types.Operator):
     # without moving the cursor.
     clutch_engaged = False
 
+
     acc_x = 0
     acc_y = 0
     acc_z = 0
@@ -50,6 +52,7 @@ class DIPPID_Controller(bpy.types.Operator):
     gyro_x = 0
     gyro_y = 0
     gyro_z = 0
+
 
     def modal(self, context, event):
         # Stop the script if the user presses ESC
@@ -83,6 +86,7 @@ class DIPPID_Controller(bpy.types.Operator):
                 except json.JSONDecodeError:
                     continue
 
+
                 if "accelerometer" in payload:
                     acc = payload["accelerometer"]
                     self.acc_x = acc.get("x", 0)
@@ -106,6 +110,7 @@ class DIPPID_Controller(bpy.types.Operator):
                 if "button_1" in payload:
                     self.clutch_engaged = bool(payload["button_1"])
 
+
             # Only integrate/apply rotation while the clutch is held. While
             # released we still drain and update sensor values above (so
             # there's no backlog/jump when re-engaging), we just don't
@@ -120,6 +125,7 @@ class DIPPID_Controller(bpy.types.Operator):
 
     def rotate_selected_objects(self, context, dt, x=0, y=0, z=0):
         if context.area.type != 'VIEW_3D' or not context.selected_objects:
+
             return
 
         angular_velocity = mathutils.Vector((x, y, z)) * self.SENSITIVITY
@@ -146,6 +152,7 @@ class DIPPID_Controller(bpy.types.Operator):
             # This is what makes rotation persist once the phone stops
             # moving, instead of relaxing back toward identity.
             obj.rotation_quaternion = delta_rotation @ obj.rotation_quaternion
+
 
     def invoke(self, context, event):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
