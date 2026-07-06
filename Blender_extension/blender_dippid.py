@@ -21,15 +21,24 @@ class DIPPID_Controller(bpy.types.Operator):
     _timer = None
     _sock = None
 
-    last_acc_x = None
-    last_acc_y = None
-    last_acc_z = None
-
     # Tuning variables
     UDP_PORT = 5700
 
-    SENSITIVITY = 1  # Rotation speed multiplier
-
+    SENSITIVITY = 0.2 # Rotation speed multiplier
+    
+    acc_x = 0
+    acc_y = 0
+    acc_z = 0
+    
+    grav_x = 0
+    grav_y = 0
+    grav_z = 0
+    
+    gyro_x = 0
+    gyro_y = 0
+    grav_z = 0
+    
+    
     def modal(self, context, event):
         # Stop the script if the user presses ESC
         if event.type in {'ESC'}:
@@ -46,16 +55,24 @@ class DIPPID_Controller(bpy.types.Operator):
 
                 if "accelerometer" in payload:
                     acc = payload["accelerometer"]
-                    acc_x = acc.get("x", 0)
-                    acc_y = acc.get("y", 0)
-                    acc_z = acc.get("z", 0)
+                    self.acc_x = acc.get("x", 0)
+                    self.acc_y = acc.get("y", 0)
+                    self.acc_z = acc.get("z", 0)
+                    
+                if "gravity" in payload:
+                    grav = payload["gravity"]
+                    self.grav_x = grav.get("x", 0)
+                    self.grav_y = grav.get("y", 0)
+                    self.grav_z = grav.get("z", 0)
+                    
+                if "gyroscope" in payload:
+                    gyro = payload["gyroscope"]
+                    self.gyro_x = gyro.get("x", 0)
+                    self.gyro_y = gyro.get("y", 0)
+                    self.gyro_z = gyro.get("z", 0)
 
-                if not (self.last_acc_x is None or self.last_acc_y is None or self.last_acc_z is None):
-                    self.rotate_selected_object(
-                        context, acc_x - self.last_acc_x, acc_y - self.last_acc_y, acc_z - self.last_acc_z)
-                self.last_acc_x = acc_x
-                self.last_acc_y = acc_y
-                self.last_acc_z = acc_z
+                self.report({'INFO'}, f"Sensors: {self.acc_z}, {self.grav_x}, {self.gyro_x}")
+                self.rotate_selected_objects(context, self.gyro_x, self.gyro_y, self.gyro_z)
 
             except BlockingIOError:
                 # No data arrived yet, just pass through smoothly
@@ -66,7 +83,7 @@ class DIPPID_Controller(bpy.types.Operator):
         # Let normal Blender events (like regular mouse clicks) pass through
         return {'PASS_THROUGH'}
 
-    def rotate_selected_object(self, context, acc_x, acc_y, acc_z):
+    def rotate_selected_objects(self, context, x=0, y=0, z=0):
         # Ensure we are in a 3D viewport
         if context.area.type != 'VIEW_3D':
             return
@@ -79,9 +96,9 @@ class DIPPID_Controller(bpy.types.Operator):
 
         if context.selected_objects:
             for obj in context.selected_objects:
-                obj.rotation_euler.x += acc_x * self.SENSITIVITY
-                obj.rotation_euler.y += acc_y * self.SENSITIVITY
-                obj.rotation_euler.z += acc_z * self.SENSITIVITY
+                obj.rotation_euler.x += x * self.SENSITIVITY
+                obj.rotation_euler.y += y * self.SENSITIVITY
+                obj.rotation_euler.z += z * self.SENSITIVITY
 
     def invoke(self, context, event):
         # 1. Setup a NON-BLOCKING UDP Socket
