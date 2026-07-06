@@ -143,7 +143,7 @@ class DIPPID_Controller(bpy.types.Operator):
         # from instantaneous (velocity, not orientation!) gyro values.
         delta_rotation = mathutils.Quaternion(axis, angle)
 
-        print(f"DEBUG: gyro=({x:.2f}, {y:.2f}, {z:.2f})  delta_angle(deg)={angle * 57.2958:.2f}")
+        #print(f"DEBUG: gyro=({x:.2f}, {y:.2f}, {z:.2f})  delta_angle(deg)={angle * 57.2958:.2f}")
 
         for obj in context.selected_objects:
             obj.rotation_mode = 'QUATERNION'
