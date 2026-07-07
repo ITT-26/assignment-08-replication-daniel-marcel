@@ -146,7 +146,7 @@ class DIPPID_Controller(bpy.types.Operator):
         if abs(z) < ROT_THRESHHOLD:
             z = 0
 
-        view_angular_velocity = mathutils.Vector((x, y, z)) * self.SENSITIVITY
+        view_angular_velocity = mathutils.Vector((x, z, -y)) * self.SENSITIVITY
         # interpret sensor change only as view coordinate system change
         # this means changes are dependent on view direction
 
@@ -192,7 +192,7 @@ class DIPPID_Controller(bpy.types.Operator):
             z = 0
 
         MOV_SENSITIVITY = 0.2
-        view_angular_velocity = mathutils.Vector((z, x, y)) * MOV_SENSITIVITY
+        view_angular_velocity = mathutils.Vector((-z, x, -y)) * MOV_SENSITIVITY
 
         # Get Viewport Direction
         rv3d = context.space_data.region_3d
