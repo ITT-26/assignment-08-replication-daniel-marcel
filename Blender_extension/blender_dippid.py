@@ -11,13 +11,13 @@ bl_info = {
     "version": (1, 2),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > DIPPID",
-    "description": "Orbits the 3D viewport using DIPPID phone sensor data.",
+    "description": "Enables movement and rotation of selected objects using DIPPID phone sensor data.",
     "category": "3D View",
 }
 
 
 class DIPPID_Controller(bpy.types.Operator):
-    """Start listening to DIPPID sensor data to move or rotate selected blender object"""
+    """Start listening to DIPPID sensor data to move or rotate selected blender objects"""
     bl_idname = "view3d.dippid_start"
     bl_label = "Start DIPPID Controller"
 
