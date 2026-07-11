@@ -8,8 +8,8 @@ import bpy  # blender python api
 bl_info = {
     "name": "DIPPID 6DOF Phone Controller",
     "author": "Daniel, Marcel",
-    "version": (1, 2),
-    "blender": (3, 0, 0),
+    "version": (1, 0),
+    "blender": (5, 0, 0),
     "location": "View3D > Sidebar > DIPPID",
     "description": "Enables movement and rotation of selected objects using DIPPID phone sensor data.",
     "category": "3D View",
