@@ -1,6 +1,10 @@
 #venv
 **/.venv/
 **/venv/
+
 #pycache
 **/__pycache__/
+
+# settings
+**/.vscode/
 
