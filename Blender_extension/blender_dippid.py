@@ -14,9 +14,12 @@ bl_info = {
     "description": "Enables movement and rotation of selected objects using DIPPID phone sensor data.",
     "category": "3D View",
 }
+# This Script was created based on a Blender extension template provided by generative AI
+# The initial AI version created a simple interface with a start button and the possibility to stop the extension using ESC
+# It also provided the non-blocking method to receive DIPPID data
 
 
-class DIPPID_Controller(bpy.types.Operator):
+class DIPPID_OT_Controller(bpy.types.Operator):
     """Start listening to DIPPID sensor data to move or rotate selected blender objects"""
     bl_idname = "view3d.dippid_start"
     bl_label = "Start DIPPID Controller"
@@ -41,27 +44,25 @@ class DIPPID_Controller(bpy.types.Operator):
     rot_clutch_engaged = False
     mov_clutch_engaged = False
 
-    acc_x = 0
-    acc_y = 0
-    acc_z = 0
-
-    grav_x = 0
-    grav_y = 0
-    grav_z = 0
-
     gyro_x = 0
     gyro_y = 0
     gyro_z = 0
 
     def modal(self, context, event):
         # Stop the script if the user presses ESC
-        if event.type in {'ESC'}:
+        if not context.window_manager.extension_is_running:
             self.cancel(context)
             self.report({'INFO'}, "DIPPID Controller Stopped")
             return {'CANCELLED'}
 
         # Triggered every time the timer fires
         if event.type == 'TIMER':
+
+            for window in context.window_manager.windows:
+                for area in window.screen.areas:
+                    if area.type == "VIEW_3D":
+                        area.tag_redraw()  # redraw panel to update time and options
+
             now = time.time()
             # dt = the ACTUAL time since the last tick, not the nominal
             # timer interval. Blender's timer isn't perfectly exact, and
@@ -75,35 +76,27 @@ class DIPPID_Controller(bpy.types.Operator):
             # easily send accelerometer + gyroscope updates faster than our
             # 60Hz timer, so reading only one per tick lets a backlog build
             # up and the rotation lags further and further behind reality.
+
             while True:
                 try:
                     data, addr = self._sock.recvfrom(1024)
                 except BlockingIOError:
+                    context.window_manager.last_package_age += dt
+                    # update time without package if nothing received
                     break
 
                 try:
                     payload = json.loads(data.decode('utf-8'))
                 except json.JSONDecodeError:
-                    continue
-
-                if "accelerometer" in payload:
-                    acc = payload["accelerometer"]
-                    self.acc_x = acc.get("x", 0)
-                    self.acc_y = acc.get("y", 0)
-                    self.acc_z = acc.get("z", 0)
-
-                if "gravity" in payload:
-                    grav = payload["gravity"]
-                    self.grav_x = grav.get("x", 0)
-                    self.grav_y = grav.get("y", 0)
-                    self.grav_z = grav.get("z", 0)
+                    context.window_manager.last_package_age += dt
+                    # update time without package if cannot parse to json
 
                 if "gyroscope" in payload:
                     gyro = payload["gyroscope"]
                     self.gyro_x = gyro.get("x", 0)
                     self.gyro_y = gyro.get("y", 0)
                     self.gyro_z = gyro.get("z", 0)
-
+                    context.window_manager.last_package_age = 0.0
                 # button_1 is the clutch: held = rotate, released = frozen.
                 # DIPPID sends 0 (released) or 1 (pressed).
                 if "button_1" in payload:
@@ -118,14 +111,24 @@ class DIPPID_Controller(bpy.types.Operator):
             # apply them to the object.
 
             if self.rot_clutch_engaged:
-                self.rotate_selected_objects(
-                    context, dt, self.gyro_x, self.gyro_y, self.gyro_z
-                )
+                if context.window_manager.view_orbit_activated:
+                    self.rotate_viewport(
+                        context, dt, self.gyro_x, self.gyro_y, self.gyro_z
+                    )
+                else:
+                    self.rotate_selected_objects(
+                        context, dt, self.gyro_x, self.gyro_y, self.gyro_z
+                    )
 
             if self.mov_clutch_engaged:
-                self.move_selected_objects(
-                    context, dt, self.gyro_x, self.gyro_y, self.gyro_z
-                )
+                if context.window_manager.view_orbit_activated:
+                    self.move_viewport(
+                        context, dt, self.gyro_x, self.gyro_y, self.gyro_z
+                    )
+                else:
+                    self.move_selected_objects(
+                        context, dt, self.gyro_x, self.gyro_y, self.gyro_z
+                    )
 
         # Let normal Blender events (like regular mouse clicks) pass through
         return {'PASS_THROUGH'}
@@ -138,12 +141,12 @@ class DIPPID_Controller(bpy.types.Operator):
         rv3d = context.space_data.region_3d
         view = rv3d.view_rotation  # this is a quaternion
 
-        ROT_THRESHHOLD = 0.05
-        if abs(x) < ROT_THRESHHOLD:
+        ROT_THRESHOLD = 0.05
+        if abs(x) < ROT_THRESHOLD:
             x = 0
-        if abs(y) < ROT_THRESHHOLD:
+        if abs(y) < ROT_THRESHOLD:
             y = 0
-        if abs(z) < ROT_THRESHHOLD:
+        if abs(z) < ROT_THRESHOLD:
             z = 0
 
         view_angular_velocity = mathutils.Vector((x, z, -y)) * self.SENSITIVITY
@@ -151,7 +154,7 @@ class DIPPID_Controller(bpy.types.Operator):
         # this means changes are dependent on view direction
 
         world_angular_velocity = view @ view_angular_velocity
-        # convert to world coordnates with view quaternion
+        # convert to world coordinates with view quaternion
 
         angle = world_angular_velocity.length * dt
 
@@ -177,30 +180,60 @@ class DIPPID_Controller(bpy.types.Operator):
             # moving, instead of relaxing back toward identity.
             obj.rotation_quaternion = delta_rotation @ obj.rotation_quaternion
 
+    def rotate_viewport(self, context, dt, x=0, y=0, z=0):
+        if context.area.type != 'VIEW_3D':
+            return
+
+        # Get Viewport Direction
+        rv3d = context.space_data.region_3d
+        view = rv3d.view_rotation  # this is a quaternion
+
+        ROT_THRESHOLD = 0.05
+        if abs(x) < ROT_THRESHOLD:
+            x = 0
+        if abs(y) < ROT_THRESHOLD:
+            y = 0
+        if abs(z) < ROT_THRESHOLD:
+            z = 0
+
+        view_angular_velocity = mathutils.Vector((x, z, -y)) * self.SENSITIVITY
+
+        world_angular_velocity = view @ view_angular_velocity
+
+        angle = world_angular_velocity.length * dt
+
+        if angle == 0:
+            return
+
+        axis = world_angular_velocity.normalized()
+
+        delta_rotation = mathutils.Quaternion(axis, angle)
+
+        rv3d.view_rotation = delta_rotation @ view
+
     def move_selected_objects(self, context, dt, x, y, z):
         if context.area.type != 'VIEW_3D' or not context.selected_objects:
             return
 
-        # different mapping here for more inuitive controls
-
-        MOV_THRESHHOLD = 0.05
-        if abs(x) < MOV_THRESHHOLD:
+        MOV_THRESHOLD = 0.05
+        if abs(x) < MOV_THRESHOLD:
             x = 0
-        if abs(y) < MOV_THRESHHOLD:
+        if abs(y) < MOV_THRESHOLD:
             y = 0
-        if abs(z) < MOV_THRESHHOLD:
+        if abs(z) < MOV_THRESHOLD:
             z = 0
 
         MOV_SENSITIVITY = 0.2
         view_angular_velocity = mathutils.Vector((-z, x, -y)) * MOV_SENSITIVITY
+        # different mapping here for more intuitive controls
 
         # Get Viewport Direction
         rv3d = context.space_data.region_3d
         view = rv3d.view_rotation  # this is a quaternion
 
         world_angular_velocity = view @ view_angular_velocity
-        # convert to world coordnates with view quaternion
-        VELOCITY = 50
+        # convert to world coordinates with view quaternion
+        VELOCITY = 30
         movement = world_angular_velocity * dt * VELOCITY
 
         if movement.length == 0:
@@ -208,6 +241,35 @@ class DIPPID_Controller(bpy.types.Operator):
 
         for obj in context.selected_objects:
             obj.location += movement
+
+    def move_viewport(self, context, dt, x, y, z):
+        if context.area.type != 'VIEW_3D':
+            return
+
+        MOV_THRESHOLD = 0.05
+        if abs(x) < MOV_THRESHOLD:
+            x = 0
+        if abs(y) < MOV_THRESHOLD:
+            y = 0
+        if abs(z) < MOV_THRESHOLD:
+            z = 0
+
+        MOV_SENSITIVITY = 0.2
+        view_angular_velocity = mathutils.Vector((-z, x, -y)) * MOV_SENSITIVITY
+
+        # Get Viewport Direction
+        rv3d = context.space_data.region_3d
+        view = rv3d.view_rotation 
+
+        world_angular_velocity = view @ view_angular_velocity
+    
+        VELOCITY = 30
+        movement = world_angular_velocity * dt * VELOCITY
+
+        if movement.length == 0:
+            return
+
+        rv3d.view_location  += movement
 
     def invoke(self, context, event):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -230,6 +292,8 @@ class DIPPID_Controller(bpy.types.Operator):
             self.TIMER_INTERVAL, window=context.window)
         wm.modal_handler_add(self)
 
+        wm.extension_is_running = True
+
         return {'RUNNING_MODAL'}
 
     def cancel(self, context):
@@ -242,6 +306,16 @@ class DIPPID_Controller(bpy.types.Operator):
             self._sock = None
 
 
+class DIPPID_OT_Stopper(bpy.types.Operator):
+    """Stops the DIPPID Controller Operator when pressing the stop button in the DIPPID panel"""
+    bl_idname = "view3d.dippid_stop"
+    bl_label = "Stop DIPPID Controller"
+
+    def execute(self, context):
+        context.window_manager.extension_is_running = False
+        return {"FINISHED"}
+
+
 class DIPPID_PT_panel(bpy.types.Panel):
     bl_label = "DIPPID Controller"
     bl_idname = "DIPPID_PT_panel"
@@ -251,16 +325,32 @@ class DIPPID_PT_panel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator(DIPPID_Controller.bl_idname,
-                        text="Start DIPPID Control", icon='PLAY')
-        layout.label(text="Press ESC to stop.")
+        wm = context.window_manager
+        if not wm.extension_is_running:
+            layout.operator(DIPPID_OT_Controller.bl_idname,
+                            text="Start DIPPID Control", icon='PLAY')
+        else:
+            layout.operator(DIPPID_OT_Stopper.bl_idname,
+                            text="Stop DIPPID Control", icon='MESH_CUBE')
+
+        if wm.extension_is_running:
+            layout.prop(wm, "view_orbit_activated",
+                        text="Move and Rotate Viewport")
+            layout.label(text="Press and hold Button1 to rotate.")
+            layout.label(text="Press and hold Button2 to move.")
+            time_label = f"Time since last DIPPID package: {int(wm.last_package_age)}"
+            layout.label(text=time_label)
 
 
 # Register classes into Blender
-classes = (DIPPID_Controller, DIPPID_PT_panel)
+classes = (DIPPID_OT_Controller, DIPPID_OT_Stopper, DIPPID_PT_panel)
 
 
 def unregister():
+    del bpy.types.WindowManager.last_package_age
+    del bpy.types.WindowManager.extension_is_running
+    del bpy.types.WindowManager.view_orbit_activated
+
     for cls in reversed(classes):
         try:
             bpy.utils.unregister_class(cls)
@@ -277,8 +367,20 @@ def register():
         temp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         temp_sock.bind(('0.0.0.0', 5700))
         temp_sock.close()
+
     except Exception as e:
         print(f"Port 5700 check: {e}")
+
+    bpy.types.WindowManager.last_package_age = bpy.props.FloatProperty(
+        name="last packet time", default=0.0)
+
+    bpy.types.WindowManager.extension_is_running = bpy.props.BoolProperty(
+        name="extension is running", default=False
+    )
+
+    bpy.types.WindowManager.view_orbit_activated = bpy.props.BoolProperty(
+        name="view orbit activated", default=True
+    )
 
     for cls in classes:
         bpy.utils.register_class(cls)
