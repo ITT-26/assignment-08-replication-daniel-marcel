@@ -11,6 +11,7 @@
 
 - As our final result we implemented an Add-on for Blender 3D.
 - The code for the extension is in a single python file called [`blender_dippid`](./blender_extension/blender_dippid.py). 
+- Documentation on the implementation is in [`implementation.md`](./documentation/implementation.md).
 - The extension ist build for Blender 5, so the latest Blender version. 
 - The python file can be opened in Blender's `Scripting` Tab. When opened, you can simply run the file and the `DIPPID` option will show up in the menu in the sidebar. 
 - You can also add the extension permanently (not per project) to Blender via the `Preferences` options.
