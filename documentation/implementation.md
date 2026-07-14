@@ -32,7 +32,7 @@
 
 - Wanted turning the phone by some angle to turn the object by exactly that angle.
 - Just setting the gain to 1 wasn't quite enough, we also had to use the actual real time between two timer ticks instead of just assuming a fixed 60Hz, since Blender's timer isn't 100% exact and that was throwing the scaling off slightly.
-- Also DIPPID (at least in testing has wierd drops between packets that are anoying)
+- Also DIPPID (at least in testing has weird drops between packets that are annoying)
 ```bash  
 Moving: X=0, Y=-9 (Packet Gap: 0.01s)
 Moving: X=0, Y=-9 (Packet Gap: 0.01s)
