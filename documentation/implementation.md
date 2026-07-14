@@ -46,10 +46,12 @@ Moving: X=0, Y=-8 (Packet Gap: 0.00s)
 
 - Movement was originally based on acceleration, same as the first mouse test. Switched it to use the gyroscope instead, so now rotating the phone moves the object (same view-relative thing as rotation, just applied as movement instead).
 - Did this because accelerometer data is just a lot noisier.
+- An additional problem with accelerometer data is, that gravity also plays into it and a phone resting on a table e.g. has a z-value of around 1 because of this. 
 
 ## View-Relative Mapping
 
-- Instead of mapping phone axes straight onto Blender's world axes, we first treat the input as if it's relative to whatever direction you're currently looking at in the viewport, and only then convert that into world space. So tilting the phone "up" always moves/rotates things "up" on your screen no matter which way you're currently looking at the scene, instead of always being tied to a fixed world direction.
+- First we started by mapping phone axes directly to Blender's world axes. However, we noticed that this led to very unintuitive controls when looking at the object from different directions. 
+- So instead of mapping phone axes straight onto Blender's world axes, we first treat the input as if it's relative to whatever direction you're currently looking at in the viewport, and only then convert that into world space. So tilting the phone "up" always moves/rotates things "up" on your screen no matter which way you're currently looking at the scene, instead of always being tied to a fixed world direction.
 
 ## Axis Calibration
 
