@@ -16,7 +16,7 @@
 ## Pivot to Blender
 
 - Aside from FreeCAD being more annoying to control, we also just thought Blender would be more interesting to build for since way more people use/care about it (bigger addressable market, more people who'd actually be interested in trying our demo).
-- The add-on ([`dippid_blender_addon.py`](../Blender_extension/blender_dippid.py)) is a Blender modal operator. On start it opens a UDP socket and sets up a timer that fires about 60 times a second, and each time it fires it reads out however many DIPPID packets are waiting (not just one, because the phone sends faster than 60Hz and otherwise stuff piles up and everything gets laggy) and updates the object.
+- The add-on ([`blender_dippid.py`](../Blender_extension/blender_dippid.py)) is a Blender modal operator. On start it opens a UDP socket and sets up a timer that fires about 60 times a second, and each time it fires it reads out however many DIPPID packets are waiting (not just one, because the phone sends faster than 60Hz and otherwise stuff piles up and everything gets laggy) and updates the object.
 
 ## Rotation Bug
 
